@@ -1,0 +1,79 @@
+site_name: Fliphetic
+site_description: Deploy and manage student pinball apps on a virtual pinball cabinet
+site_url: https://pandormedia.github.io/fliphetic/
+repo_url: https://github.com/PANDORMedia/fliphetic
+repo_name: PANDORMedia/fliphetic
+copyright: PANDOR Media
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: fr
+          name: Francais
+          build: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Requirements: requirements.md
+  - Cabinet setup:
+      - OS and network: cab-os.md
+      - Display and power: cab-display-power.md
+      - Boot branding: cab-branding.md
+  - Install Fliphetic: install.md
+  - Configuration: configuration.md
+  - Operations: operations.md
+  - Building apps: apps.md
+  - Examples and recipes: examples.md
+  - ESP32 firmware: esp32-firmware.md
+  - Architecture: architecture.md
+  - Troubleshooting: troubleshooting.md
