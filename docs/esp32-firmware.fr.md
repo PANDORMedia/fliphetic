@@ -21,8 +21,8 @@ esptool --chip <chip> --port <port> --baud <baud> \
 * `<extra_*>` sont des images supplémentaires facultatives, également issues du
   manifeste.
 
-La borne ne compile pas le firmware. Vous le compilez une fois, vous committez
-le binaire résultant dans votre dépôt, et la borne flashe ce fichier exact.
+La borne ne compile pas le firmware. Vous le compilez une fois, vous validez le
+binaire résultant dans votre dépôt, et la borne flashe ce fichier exact.
 
 ## Deux types d'image
 
@@ -100,7 +100,7 @@ commande `esptool merge_bin` montrée ci-dessus, ou listez-les comme images
    `partitions.bin`.
 
 Pour produire une image fusionnée, exécutez `esptool merge_bin` sur ces trois
-fichiers comme montré ci-dessus, puis committez le binaire fusionné.
+fichiers comme montré ci-dessus, puis validez le binaire fusionné.
 
 ## Tutoriel : ESP-IDF
 
@@ -124,7 +124,7 @@ ESP-IDF peut produire directement une image fusionnée :
 idf.py merge-bin -o merged.bin
 ```
 
-Committez `merged.bin` et flashez-le à `0x0`.
+Validez `merged.bin` et flashez-le à `0x0`.
 
 ## Tutoriel : MicroPython
 
@@ -153,19 +153,180 @@ Pour la plupart des projets de borne, Arduino IDE, PlatformIO ou ESP-IDF
 conviennent mieux car ils produisent un binaire unique qui contient l'ensemble
 du programme.
 
+## Automatiser la compilation avec GitHub Actions
+
+Exporter le firmware à la main depuis un IDE ne passe pas à l'échelle et
+s'oublie facilement. Comme la borne flashe un binaire qui est validé dans le
+dépôt de l'application, l'approche propre est un workflow GitHub Actions qui
+compile le firmware et valide le binaire résultant dans le dépôt chaque fois que
+les sources changent.
+
+Le service de surveillance (watchdog) voit alors le nouveau commit, et le
+chargement suivant flashe le firmware fraîchement compilé. Les étudiants ne
+lancent jamais de compilation à la main.
+
+Pour que cela fonctionne, conservez les sources du firmware et le binaire
+compilé dans le dépôt de l'application, par exemple :
+
+```
+firmware/
+  src/                 vos sources
+  build/firmware.bin   validé par la CI, référencé par le manifeste
+```
+
+### PlatformIO en CI
+
+PlatformIO se pilote entièrement en ligne de commande, il s'automatise donc
+proprement. Ajoutez ce workflow dans `.github/workflows/firmware.yml` :
+
+```yaml
+name: Build ESP32 firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - "!firmware/build/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO and esptool
+        run: pip install platformio esptool
+
+      - name: Build
+        run: pio run --project-dir firmware
+
+      - name: Merge into a single image
+        run: |
+          BUILD=firmware/.pio/build/esp32dev   # the env name from platformio.ini
+          mkdir -p firmware/build
+          esptool --chip esp32 merge_bin -o firmware/build/firmware.bin \
+            0x1000  "$BUILD/bootloader.bin" \
+            0x8000  "$BUILD/partitions.bin" \
+            0x10000 "$BUILD/firmware.bin"
+
+      - name: Commit the binary
+        run: |
+          git config user.name  "firmware-ci"
+          git config user.email "firmware-ci@users.noreply.github.com"
+          git add firmware/build/firmware.bin
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "ci: rebuild ESP32 firmware [skip ci]"
+          git push
+```
+
+Remplacez `esp32dev` par le nom de l'environnement issu de votre
+`platformio.ini`.
+
+### ESP-IDF en CI
+
+ESP-IDF est le framework C d'Espressif. Espressif publie une action toute prête
+qui compile un projet ESP-IDF dans le conteneur officiel de la chaîne d'outils.
+
+```yaml
+name: Build ESP32 firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - "!firmware/build/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3
+          target: esp32
+          path: firmware
+          command: idf.py build && idf.py merge-bin -o build/firmware.bin
+
+      - name: Commit the binary
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" firmware/build
+          git config user.name  "firmware-ci"
+          git config user.email "firmware-ci@users.noreply.github.com"
+          git add firmware/build/firmware.bin
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "ci: rebuild ESP32 firmware [skip ci]"
+          git push
+```
+
+L'étape de compilation s'exécute dans un conteneur, les fichiers de sortie
+peuvent donc appartenir à root. La ligne `chown` les rend à l'utilisateur du
+runner avant `git add`.
+
+### Pourquoi le binaire est validé
+
+La borne lit le chemin `firmware` depuis le manifeste, relatif au dépôt, et
+clone l'application avec un simple `git clone`. Le binaire doit donc exister dans
+l'arborescence git. Le valider depuis la CI le maintient reproductible et
+synchronisé avec les sources, sans que personne ne compile quoi que ce soit à la
+main.
+
+### Éviter une boucle de compilation
+
+Le workflow valide dans `firmware/build/`. Le filtre `paths` exclut ce
+répertoire (`"!firmware/build/**"`), de sorte que le commit ne déclenche pas le
+workflow à nouveau. Le marqueur `[skip ci]` dans le message de commit est une
+seconde protection.
+
+### Manifeste pour une image compilée en CI
+
+Les deux workflows ci-dessus produisent une image fusionnée, flashez-la donc à
+l'offset `0x0` :
+
+```toml
+[esp32.buttons]
+firmware   = "firmware/build/firmware.bin"
+chip       = "esp32"
+flash_addr = "0x0"
+```
+
+### Projets Arduino en CI
+
+Si votre firmware utilise le framework Arduino, vous n'avez pas besoin d'Arduino
+IDE en CI. Compilez le projet Arduino via PlatformIO (qui prend en charge le
+framework Arduino) et réutilisez le workflow PlatformIO ci-dessus, ou utilisez
+`arduino-cli`, le compagnon en ligne de commande de l'IDE, selon le même schéma
+de compilation puis de validation.
+
 ## Placer le binaire dans votre dépôt
 
-Committez le binaire compilé dans le dépôt de votre application. Une disposition
+Validez le binaire compilé dans le dépôt de votre application. Une disposition
 courante :
 
 ```
 firmware/
-  src/                 your sources
-  build/merged.bin     the binary you commit
-  README.md            how to rebuild it
+  src/                 vos sources
+  build/merged.bin     le binaire que vous validez
+  README.md            comment le recompiler
 ```
 
-Ajoutez le reste de `build/` au `.gitignore`. Ne committez que le binaire final,
+Ajoutez le reste de `build/` au `.gitignore`. Ne validez que le binaire final,
 afin que la borne flashe un artefact reproductible et que les chargements
 restent rapides.
 

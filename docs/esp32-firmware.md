@@ -144,6 +144,161 @@ ESP32 uses `0x1000`, while ESP32-S3, C3, and C6 use `0x0`.
 For most cabinet projects, Arduino IDE, PlatformIO, or ESP-IDF are a better fit
 because they produce a single binary that contains the whole program.
 
+## Automating the build with GitHub Actions
+
+Exporting firmware by hand from an IDE does not scale and is easy to forget.
+Because the cabinet flashes a binary that is committed in the app repository,
+the clean approach is a GitHub Actions workflow that builds the firmware and
+commits the resulting binary back to the repository whenever the sources
+change.
+
+The watchdog then sees the new commit, and the next load flashes the fresh
+firmware. Students never run a build by hand.
+
+For this to work, keep the firmware sources and the built binary in the app
+repository, for example:
+
+```
+firmware/
+  src/                 your sources
+  build/firmware.bin   committed by CI, referenced by the manifest
+```
+
+### PlatformIO in CI
+
+PlatformIO is fully driven from the command line, so it automates cleanly. Add
+this workflow at `.github/workflows/firmware.yml`:
+
+```yaml
+name: Build ESP32 firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - "!firmware/build/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO and esptool
+        run: pip install platformio esptool
+
+      - name: Build
+        run: pio run --project-dir firmware
+
+      - name: Merge into a single image
+        run: |
+          BUILD=firmware/.pio/build/esp32dev   # the env name from platformio.ini
+          mkdir -p firmware/build
+          esptool --chip esp32 merge_bin -o firmware/build/firmware.bin \
+            0x1000  "$BUILD/bootloader.bin" \
+            0x8000  "$BUILD/partitions.bin" \
+            0x10000 "$BUILD/firmware.bin"
+
+      - name: Commit the binary
+        run: |
+          git config user.name  "firmware-ci"
+          git config user.email "firmware-ci@users.noreply.github.com"
+          git add firmware/build/firmware.bin
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "ci: rebuild ESP32 firmware [skip ci]"
+          git push
+```
+
+Replace `esp32dev` with the environment name from your `platformio.ini`.
+
+### ESP-IDF in CI
+
+ESP-IDF is the C framework from Espressif. Espressif publishes a ready made
+action that builds an ESP-IDF project inside the official toolchain container.
+
+```yaml
+name: Build ESP32 firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - "!firmware/build/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3
+          target: esp32
+          path: firmware
+          command: idf.py build && idf.py merge-bin -o build/firmware.bin
+
+      - name: Commit the binary
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" firmware/build
+          git config user.name  "firmware-ci"
+          git config user.email "firmware-ci@users.noreply.github.com"
+          git add firmware/build/firmware.bin
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "ci: rebuild ESP32 firmware [skip ci]"
+          git push
+```
+
+The build step runs in a container, so the output files may be owned by root.
+The `chown` line hands them back to the runner user before `git add`.
+
+### Why the binary is committed
+
+The cabinet reads the `firmware` path from the manifest, relative to the
+repository, and clones the app with a plain `git clone`. The binary must
+therefore exist in the git tree. Committing it from CI keeps it reproducible
+and in sync with the sources, while no one builds anything by hand.
+
+### Avoiding a build loop
+
+The workflow commits into `firmware/build/`. The `paths` filter excludes that
+directory (`"!firmware/build/**"`), so the commit does not trigger the workflow
+again. The `[skip ci]` marker in the commit message is a second safeguard.
+
+### Manifest for a CI built image
+
+Both workflows above produce a merged image, so flash it at offset `0x0`:
+
+```toml
+[esp32.buttons]
+firmware   = "firmware/build/firmware.bin"
+chip       = "esp32"
+flash_addr = "0x0"
+```
+
+### Arduino projects in CI
+
+If your firmware uses the Arduino framework, you do not need the Arduino IDE in
+CI. Either build the Arduino project through PlatformIO (which supports the
+Arduino framework) and reuse the PlatformIO workflow above, or use
+`arduino-cli`, the command line companion to the IDE, in the same
+build then commit pattern.
+
 ## Putting the binary in your repository
 
 Commit the built binary into your app repository. A common layout:
