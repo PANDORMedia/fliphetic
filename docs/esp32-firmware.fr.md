@@ -402,3 +402,7 @@ avec votre application. Le protocole (sur le port série USB, sur le réseau, so
 forme d'appuis de touches émulés, ou tout autre moyen) est décidé entre votre
 firmware et votre application. Documentez-le dans votre dépôt afin que les deux
 moitiés restent synchronisées.
+
+Si le firmware atteint votre application par le réseau, voir
+[Point d'accès Wi-Fi](wifi.md) pour connecter un ESP32 au Wi-Fi de la borne et
+atteindre ses services.

@@ -382,3 +382,7 @@ Fliphetic flashes firmware but does not define how the firmware talks to your
 app. The protocol (over USB serial, over the network, as emulated key presses,
 or anything else) is decided between your firmware and your app. Document it in
 your repository so the two halves stay in sync.
+
+If the firmware reaches your app over the network, see
+[Wi-Fi access point](wifi.md) for connecting an ESP32 to the cabinet's Wi-Fi
+and reaching its services.

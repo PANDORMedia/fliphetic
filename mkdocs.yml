@@ -75,5 +75,6 @@ nav:
   - Building apps: apps.md
   - Examples and recipes: examples.md
   - ESP32 firmware: esp32-firmware.md
+  - Wi-Fi access point: wifi.md
   - Architecture: architecture.md
   - Troubleshooting: troubleshooting.md
