@@ -33,8 +33,9 @@ Loading an app is the central operation. In order:
    down.
 5. **Flash.** Each `[esp32.<name>]` block is flashed with esptool. A missing
    required device aborts the load.
-6. **Compose up.** The app's Docker services are started and given time to pass
-   their healthchecks.
+6. **Compose up.** Any dashboard-set environment variables are written to a
+   generated Compose override file, then the app's Docker services are started
+   and given time to pass their healthchecks.
 7. **Resolve screens.** Each screen target is turned into a host reachable URL.
    `service` targets are resolved through `docker compose port`; each distinct
    service and port is queried once.
@@ -66,10 +67,12 @@ State lives in one SQLite database, by default
 | `users` | Accounts: username, scrypt password hash, role. |
 | `screens` | Screen role, output, and geometry. |
 | `esp32_devices` | Device name, port, chip, baud. |
+| `app_env` | Per-app environment variables: app, container, name, value. |
 | `cab_state` | Key and value pairs: the current app, the boot default, the signup setting, the session secret. |
 
 Cloned repositories live under `/var/lib/fliphetic/apps/<app-id>/`. A `current`
-symlink points at the loaded app.
+symlink points at the loaded app. Generated Compose override files, one per app
+that has environment variables, live under `apps/.env-overrides/`.
 
 ## The kiosk approach
 

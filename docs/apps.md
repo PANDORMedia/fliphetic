@@ -116,6 +116,21 @@ Conventions:
 * Do not bind to fixed host ports. Use `0:<container_port>`.
 * Relative volume paths are resolved against the Compose file's directory.
 
+## Environment variables
+
+Your app's containers can receive environment variables that are **not** part
+of your repository. They are set per app on the cabinet dashboard by whoever
+deploys the app — see [Operations](operations.md).
+
+This is where anything you must not commit belongs — API keys and other
+secrets — along with values that differ from one cabinet to another. Do not put
+those in `fliphetic.toml` or in your Compose file: your repository is public.
+
+Inside a container, read the variables the usual way: `process.env` in Node,
+`os.environ` in Python, and so on. Document which variables your app expects so
+whoever deploys it knows what to set, and fall back to a sensible default when
+one is absent.
+
 ## Three ways to wire Docker to screens
 
 The cabinet supports all three topologies.

@@ -27,6 +27,33 @@ shown, and nothing is added.
 Public repositories are simplest because the cabinet clones over HTTPS with no
 credentials.
 
+## Environment variables
+
+An app's Docker containers can be given environment variables — API URLs,
+feature flags, credentials — without putting them in the app's repository. They
+are managed here on the cabinet and stored in its database, never in
+`fliphetic.toml`, which keeps secrets out of the (usually public) app
+repository.
+
+An administrator or the app's owner sets them in the **Environment variables**
+section of the app's page. Each variable has:
+
+* a **container** — the Compose service it is injected into, or *all
+  containers*;
+* a **name** — letters, digits, and underscores;
+* a **value**.
+
+The dashboard reads the app's container list from its Compose file, so the
+container selector lists the real services. Submitting a variable with the same
+container and name again updates its value; the **Remove** button deletes one.
+
+Variables can also be set when the app is first registered: the **+ Register**
+form has an environment-variables box where you enter one `KEY=VALUE` per line.
+Those apply to all containers and can be re-scoped per container afterwards.
+
+Environment variables take effect on the app's next **Load**. Changing them
+does not affect a currently running app until it is loaded again.
+
 ## Loading and stopping an app
 
 From the Apps list or an app's own page, click **Load**. Loading performs these

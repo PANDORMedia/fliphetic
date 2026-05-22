@@ -123,6 +123,23 @@ Conventions :
 * Les chemins de volume relatifs sont résolus par rapport au répertoire du
   fichier Compose.
 
+## Variables d'environnement
+
+Les conteneurs de votre application peuvent recevoir des variables
+d'environnement qui ne font **pas** partie de votre dépôt. Elles sont définies
+par application sur le tableau de bord de la borne, par la personne qui déploie
+l'application — voir [Exploitation](operations.md).
+
+C'est là que doit aller tout ce que vous ne devez pas committer — clés d'API et
+autres secrets — ainsi que les valeurs qui diffèrent d'une borne à l'autre. Ne
+les mettez pas dans `fliphetic.toml` ni dans votre fichier Compose : votre dépôt
+est public.
+
+Dans un conteneur, lisez les variables de la manière habituelle : `process.env`
+en Node, `os.environ` en Python, et ainsi de suite. Documentez les variables que
+votre application attend pour que la personne qui la déploie sache quoi définir,
+et prévoyez une valeur par défaut raisonnable lorsqu'une variable est absente.
+
 ## Trois façons de relier Docker aux écrans
 
 La borne prend en charge les trois topologies.

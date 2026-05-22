@@ -20,6 +20,22 @@ Fliphetic clone le dépôt, valide le manifeste, et ajoute l'application à la l
 
 Les dépôts publics sont les plus simples car la borne clone via HTTPS sans identifiants.
 
+## Variables d'environnement
+
+Les conteneurs Docker d'une application peuvent recevoir des variables d'environnement — URL d'API, indicateurs de fonctionnalité, identifiants — sans les placer dans le dépôt de l'application. Elles sont gérées ici, sur la borne, et stockées dans sa base de données, jamais dans `fliphetic.toml`, ce qui garde les secrets hors du dépôt (généralement public) de l'application.
+
+Un administrateur ou le propriétaire de l'application les définit dans la section **Environment variables** de la page de l'application. Chaque variable comporte :
+
+* un **conteneur** — le service Compose dans lequel elle est injectée, ou *tous les conteneurs* ;
+* un **nom** — lettres, chiffres et tirets bas ;
+* une **valeur**.
+
+Le tableau de bord lit la liste des conteneurs de l'application depuis son fichier Compose, donc le sélecteur de conteneur liste les services réels. Soumettre à nouveau une variable avec le même conteneur et le même nom met à jour sa valeur ; le bouton **Remove** en supprime une.
+
+Les variables peuvent aussi être définies lors du premier enregistrement de l'application : le formulaire **+ Register** comporte une zone de variables d'environnement où vous saisissez une paire `KEY=VALUE` par ligne. Celles-ci s'appliquent à tous les conteneurs et peuvent être re-ciblées par conteneur ensuite.
+
+Les variables d'environnement prennent effet au prochain **Load** de l'application. Les modifier n'affecte pas une application en cours d'exécution tant qu'elle n'est pas rechargée.
+
 ## Charger et arrêter une application
 
 Depuis la liste Apps ou la page d'une application, cliquez sur **Load**. Le chargement effectue ces étapes dans l'ordre, et est sérialisé afin que deux chargements ne puissent jamais se chevaucher :

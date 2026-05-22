@@ -34,8 +34,10 @@ Charger une application est l'opération centrale. Dans l'ordre :
    chargée sont arrêtés.
 5. **Flashage.** Chaque bloc `[esp32.<name>]` est flashé avec esptool. Un
    périphérique requis manquant interrompt le chargement.
-6. **Compose up.** Les services Docker de l'application sont démarrés et
-   disposent d'un délai pour passer leurs tests de santé.
+6. **Compose up.** Les variables d'environnement définies dans le tableau de
+   bord sont écrites dans un fichier de surcharge Compose généré, puis les
+   services Docker de l'application sont démarrés et disposent d'un délai pour
+   passer leurs tests de santé.
 7. **Résolution des écrans.** Chaque cible d'écran est transformée en une URL
    atteignable depuis l'hôte. Les cibles `service` sont résolues via
    `docker compose port` ; chaque service et port distinct est interrogé une
@@ -70,10 +72,13 @@ L'état réside dans une seule base de données SQLite, par défaut
 | `users` | Comptes : nom d'utilisateur, empreinte scrypt du mot de passe, rôle. |
 | `screens` | Rôle d'écran, sortie et géométrie. |
 | `esp32_devices` | Nom du périphérique, port, puce, débit en bauds. |
+| `app_env` | Variables d'environnement par application : application, conteneur, nom, valeur. |
 | `cab_state` | Paires clé / valeur : l'application courante, la valeur par défaut au démarrage, le paramètre d'inscription, le secret de session. |
 
 Les dépôts clonés résident sous `/var/lib/fliphetic/apps/<app-id>/`. Un lien
-symbolique `current` pointe vers l'application chargée.
+symbolique `current` pointe vers l'application chargée. Les fichiers de surcharge
+Compose générés, un par application ayant des variables d'environnement,
+résident sous `apps/.env-overrides/`.
 
 ## L'approche kiosque
 
